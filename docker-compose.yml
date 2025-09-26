@@ -1,0 +1,13 @@
+version: '3'
+services:
+  neXSim-latest:
+    build: .
+    container_name: neXSim-latest
+    expose:
+      - "8082"
+    networks:
+      - "neXSim-net"
+
+networks:
+  neXSim-net:
+    external: true
