@@ -8,17 +8,6 @@ from neXSim.search import *
 from neXSim.summary import full_summary
 from neXSim.lca import lca
 from neXSim.report import report_all
-
-from flask import request
-from flask_restx import Resource, Api
-from pydantic import ValidationError
-from neXSim import app
-from neXSim.characterization import characterize, kernel_explanation
-from neXSim.models import *
-from neXSim.search import *
-from neXSim.summary import full_summary
-from neXSim.lca import lca
-from neXSim.report import report_all
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
