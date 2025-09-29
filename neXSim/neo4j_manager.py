@@ -223,8 +223,8 @@ DIRECT_INSTANCES_QUERY = (
     MATCH (a:Synset {id:_id})
     CALL {
       WITH a
-      MATCH (a)-[:instance_of]->(b:Synset)
-      RETURN DISTINCT a.id as for, a.id AS source, "instance_of" AS relation, b.id AS target   
+      MATCH (a)-[:instance_of|is_a]->(b:Synset)
+      RETURN DISTINCT a.id as for, a.id AS source, type(r) AS relation, b.id AS target   
     }
     RETURN for, source, relation, target;
     """
