@@ -153,9 +153,9 @@ def characterize(_input: NeXSimResponse):
     summaries = copy.deepcopy(_input.summaries)
     _input.characterization = compute_characterization(summaries)
     if _input.computation_times is None:
-        _input.computation_times = {"characterization": round(time.perf_counter() - _start, 3)}
+        _input.computation_times = {"characterization": round(time.perf_counter() - _start, 5)}
     else:
-        _input.computation_times["characterization"] = round(time.perf_counter() - _start, 3)
+        _input.computation_times["characterization"] = round(time.perf_counter() - _start, 5)
 
 
 # kernel explanation is a characterization-like explanation
@@ -168,7 +168,11 @@ def kernel_explanation(_input: NeXSimResponse):
         entity = summary.entity
         tmp_tops: set[str] = set()
         tmp_atoms: list[Atom] = []
+        constants_to_names: dict[BabelNetID, set[str]] = {}
         for atom in summary.summary:
+            if atom.target_id not in constants_to_names:
+                constants_to_names[atom.target_id] = set()
+            constants_to_names[atom.target_id].add(atom.predicate)
             if atom.predicate not in ['is_a', 'instance_of', 'subclass_of', 'part_of']:
                 tmp_atoms.append(atom)
                 tmp_tops.add(atom.source_id)
@@ -177,15 +181,24 @@ def kernel_explanation(_input: NeXSimResponse):
         for atom in _input.lca:
             tmp_atoms.append(Atom(source_id=entity, target_id=atom.target_id, predicate=atom.predicate))
             tmp_tops.add(atom.target_id)
+        
+        for constant in constants_to_names.keys():
+            if len(constants_to_names[constant]) > 1 and 'is_a' in constants_to_names[constant]:
+                tmp_atoms.append(Atom(source_id=entity, target_id=constant, predicate='is_a'))
+                tmp_tops.add(constant)
+            if len(constants_to_names[constant]) > 1 and 'part_of' in constants_to_names[constant]:
+                tmp_atoms.append(Atom(source_id=entity, target_id=constant, predicate='part_of'))
+                tmp_tops.add(constant)
+                
 
         summary_tilde.append(Summary(entity=summary.entity, tops=list(tmp_tops), summary=tmp_atoms))
 
     _input.kernel_explanation = compute_characterization(summary_tilde)
 
     if _input.computation_times is None:
-        _input.computation_times = {"ker": round(time.perf_counter() - _start, 3)}
+        _input.computation_times = {"ker": round(time.perf_counter() - _start, 5)}
     else:
-        _input.computation_times["ker"] = round(time.perf_counter() - _start, 3)
+        _input.computation_times["ker"] = round(time.perf_counter() - _start, 5)
 
 
 # the characterization obtained via "direct product" of summaries

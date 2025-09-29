@@ -77,7 +77,7 @@ def compute_direct_instances(unit: list[str]) -> (list[Atom], float):
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
     direct_instances = parse_neo4j_result(dataset_manager.get_direct_instances(_entities=unit))
-    return direct_instances, round(time.perf_counter() - _start, 3)
+    return direct_instances, round(time.perf_counter() - _start, 5)
 
 
 def compute_raw_subgraph_hypernyms(unit: list[str], instances: list[Atom]) -> (list[Atom], float):
@@ -85,7 +85,7 @@ def compute_raw_subgraph_hypernyms(unit: list[str], instances: list[Atom]) -> (l
     _start = time.perf_counter()
     raw_hypernyms = parse_neo4j_result(dataset_manager.get_raw_subclass(_entities=unit,
                                                                         _direct_instances=instances))
-    return raw_hypernyms, round(time.perf_counter() - _start, 3)
+    return raw_hypernyms, round(time.perf_counter() - _start, 5)
 
 
 def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom]) -> (list[Atom], float):
@@ -94,14 +94,14 @@ def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom]) -> (list[At
     hypernym_lca: list[Atom] = execute_clingo_lca(inject_facts(unit, raw_hypernyms)
                                                   + LCA_PROGRAM.format(r="is_a") + HYPERNYM_TRANSITIVE_CLOSURE,
                                                   unit, 'is_a')
-    return hypernym_lca, round(time.perf_counter() - _start, 3)
+    return hypernym_lca, round(time.perf_counter() - _start, 5)
 
 
 def compute_raw_subgraph_meronyms(unit: list[str]) -> (list[Atom], float):
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
     raw_meronyms = parse_neo4j_result(dataset_manager.get_raw_part_of(_entities=unit))
-    return raw_meronyms, round(time.perf_counter() - _start, 3)
+    return raw_meronyms, round(time.perf_counter() - _start, 5)
 
 
 def compute_meronym_lca(unit: list[str], raw_meronyms: list[Atom]) -> (list[Atom], float):
@@ -109,7 +109,7 @@ def compute_meronym_lca(unit: list[str], raw_meronyms: list[Atom]) -> (list[Atom
     meronym_lca: list[Atom] = execute_clingo_lca(inject_facts(unit, raw_meronyms)
                                                  + LCA_PROGRAM.format(r="part_of") + MERONYM_TRANSITIVE_CLOSURE,
                                                  unit, 'part_of')
-    return meronym_lca, round(time.perf_counter() - _start, 3)
+    return meronym_lca, round(time.perf_counter() - _start, 5)
 
 
 def lca(_input: NeXSimResponse):
@@ -146,7 +146,7 @@ def lca(_input: NeXSimResponse):
 
     meronym_lca, computation_times["meronym_lca"] = compute_meronym_lca(unit=_input.unit, raw_meronyms=raw_meronyms)
 
-    computation_times["lca"] = round(time.perf_counter() - _start, 3)
+    computation_times["lca"] = round(time.perf_counter() - _start, 5)
 
     # Total lca is the union of hypernyms and meronyms lca
     _input.lca = hypernym_lca

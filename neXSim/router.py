@@ -8,51 +8,6 @@ from neXSim.search import *
 from neXSim.summary import full_summary
 from neXSim.lca import lca
 from neXSim.report import report_all
-import logging
-from logging.handlers import TimedRotatingFileHandler
-
-
-handler = TimedRotatingFileHandler(
-    "neXSim.log", when="midnight", interval=1, backupCount=1, encoding="utf-8"
-)
-formatter = logging.Formatter(
-    "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-)
-handler.setFormatter(formatter)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(handler)
-
-@app.before_request
-def log_request():
-    logger.info(
-        "Incoming Request: %s %s | Body: %s | Headers: %s",
-        request.method,
-        request.path,
-        request.get_json(silent=True),
-        dict(request.headers),
-    )
-
-@app.after_request
-def log_response(response):
-    if request.path != '/api/unit/report':
-        logger.info(
-            "Outgoing Response: %s %s | Status: %s | Response Body: %s",
-            request.method,
-            request.path,
-            response.status,
-            response.get_data(as_text=True)
-        )
-        return response
-    logger.info(
-        "Outgoing Response: %s %s | Status: %s ",
-        request.method,
-        request.path,
-        response.status
-    )
-    return response
-
 
 
 api = Api(app, doc='/api/docs', title='neXSim API', version='0.1', description='neXSim API')
