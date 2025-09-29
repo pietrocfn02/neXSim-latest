@@ -183,7 +183,6 @@ RETURN results
 def compute_subgraph(tx, _to_attach: list[str], _relation: str):
     if _relation == "subclass_of":
         result = tx.run(HYPERNYM_SUBGRAPH_QUERY, ids=_to_attach)
-        print(_to_attach)
     elif _relation == "part_of":
         result = tx.run(MERONYM_SUBGRAPH_QUERY, ids=_to_attach)
     else:
@@ -223,7 +222,7 @@ DIRECT_INSTANCES_QUERY = (
     MATCH (a:Synset {id:_id})
     CALL {
       WITH a
-      MATCH (a)-[:instance_of|is_a]->(b:Synset)
+      MATCH (a)-[r:instance_of|is_a]->(b:Synset)
       RETURN DISTINCT a.id as for, a.id AS source, type(r) AS relation, b.id AS target   
     }
     RETURN for, source, relation, target;

@@ -83,7 +83,6 @@ def compute_direct_instances(unit: list[str]) -> (list[Atom], float):
 def compute_raw_subgraph_hypernyms(unit: list[str], instances: list[Atom]) -> (list[Atom], float):
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
-    print("Here...")
     raw_hypernyms = parse_neo4j_result(dataset_manager.get_raw_subclass(_entities=unit,
                                                                         _direct_instances=instances))
     return raw_hypernyms, round(time.perf_counter() - _start, 3)
@@ -91,6 +90,7 @@ def compute_raw_subgraph_hypernyms(unit: list[str], instances: list[Atom]) -> (l
 
 def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom]) -> (list[Atom], float):
     _start = time.perf_counter()
+    print(inject_facts(unit, raw_hypernyms) + LCA_PROGRAM.format(r="is_a") + HYPERNYM_TRANSITIVE_CLOSURE)
     hypernym_lca: list[Atom] = execute_clingo_lca(inject_facts(unit, raw_hypernyms)
                                                   + LCA_PROGRAM.format(r="is_a") + HYPERNYM_TRANSITIVE_CLOSURE,
                                                   unit, 'is_a')
