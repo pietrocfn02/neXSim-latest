@@ -9,10 +9,10 @@ def find_entity_from_list(to_find: str, collection: set[Entity]) -> Entity | str
     for entity in collection:
         if entity.id == to_find:
             return entity
-    tmp: set[Entity] = search_by_id([to_find])
-    if len(tmp) > 0:
-        for entity in tmp:
-            return entity
+    #tmp: set[Entity] = search_by_id([to_find])
+    #if len(tmp) > 0:
+    #    for entity in tmp:
+    #        return entity
     return to_find
 
 def entity_to_outfile(e: Entity | str) -> str:
