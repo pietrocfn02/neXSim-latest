@@ -125,77 +125,55 @@ def compute_oneshot_summary(tx, _entities: list[str]):
             for record in result]
 
 
-HYPERNYM_SUBGRAPH_QUERY = """
+
+SUBGRAPH_QUERY = """
+{match}
 CREATE (dummy:Dummy)
-WITH dummy, $ids AS ids
-
-// Subquery: compute results (may be empty)
-CALL {
-  WITH dummy, ids
-  UNWIND ids AS _id 
-    MATCH (e:Synset {id:_id})
-    MERGE (dummy)-[:x]->(e)
-  WITH dummy
-  CALL apoc.path.subgraphAll(dummy,
-    { uniqueness:'RELATIONSHIP_GLOBAL',
-      relationshipFilter:'x>|subclass_of>' }) 
-  YIELD relationships
-  UNWIND relationships AS r
-  WITH startNode(r) AS s, endNode(r) AS t, type(r) AS arc
-  WHERE arc = 'subclass_of'
-  RETURN collect({source:s.id, relation:arc, target:t.id}) AS results
-}
-WITH dummy, coalesce(results, []) AS results
-
-// Delete always runs, because dummy is still bound here
+WITH dummy, {w}
+{merge}
+WITH dummy
+CALL apoc.path.subgraphAll(dummy,
+    {{ uniqueness:'RELATIONSHIP_GLOBAL',
+      relationshipFilter:'x>|SUBCLASS_OF>' }}) 
+YIELD relationships
+UNWIND relationships AS r
+WITH dummy, startNode(r) AS s, endNode(r) AS t, type(r) AS arc
+WHERE arc = 'SUBCLASS_OF'
+and s IS NOT NULL
+WITH collect({{s:s.id, arc:arc, t:t.id}}) AS rows, dummy
 DETACH DELETE dummy
-RETURN results
+WITH rows
+UNWIND rows AS row
+RETURN row.s AS source, row.arc AS relation, row.t AS target
 """
-
-MERONYM_SUBGRAPH_QUERY = """
-CREATE (dummy:Dummy)
-WITH dummy, $ids AS ids
-
-// Subquery: compute results (may be empty)
-CALL {
-  WITH dummy, ids
-  UNWIND ids AS _id 
-    MATCH (e:Synset {id:_id})
-    MERGE (dummy)-[:x]->(e)
-  WITH dummy
-  CALL apoc.path.subgraphAll(dummy,
-    { uniqueness:'RELATIONSHIP_GLOBAL',
-      relationshipFilter:'x>|part_of>' }) 
-  YIELD relationships
-  UNWIND relationships AS r
-  WITH startNode(r) AS s, endNode(r) AS t, type(r) AS arc
-  WHERE arc = 'part_of'
-  RETURN collect({source:s.id, relation:arc, target:t.id}) AS results
-}
-WITH dummy, coalesce(results, []) AS results
-
-// Delete always runs, because dummy is still bound here
-DETACH DELETE dummy
-RETURN results
-"""
-
 
 def compute_subgraph(tx, _to_attach: list[str], _relation: str):
-    if _relation == "subclass_of":
-        result = tx.run(HYPERNYM_SUBGRAPH_QUERY, ids=_to_attach)
-    elif _relation == "part_of":
-        result = tx.run(MERONYM_SUBGRAPH_QUERY, ids=_to_attach)
+    params: dict[str, str] = {}
+    _match = ""
+    _with = ""
+    _merge = ""
+    for i in range(len(_to_attach)):
+        params[f"e{i}"] = _to_attach[i]
+        _match += f'MATCH (e{i}:Synset {{id:"{_to_attach[i]}"}}) '
+        _with += f"e{i}, "
+        _merge += f"MERGE (dummy)-[:x]->(e{i}) "
+    _with = _with[:-2]
+
+    if _relation == 'subclass_of' or _relation == 'part_of':
+        inst_query = SUBGRAPH_QUERY.format(match=_match, w=_with, merge=_merge, predicate=_relation)
+        # print(inst_query)
+        result = tx.run(inst_query)
     else:
         raise Exception(f"Subgraph not defined for relation {_relation}")
-    outlist = []
-    for record in result:
-        for tmp in record["results"]:
-            outlist.append({
-                "source": tmp["source"],
-                "relation": tmp["relation"],
-                "target": tmp["target"]
-            })
-    return outlist
+    return [{"source": record["source"],
+             "relation": record["relation"],
+             "target": record["target"]}
+            for record in result]
+
+
+
+def compute_sound_relationships(tx, nodes: list[str]):
+    pass
 
 
 OTHERS_QUERY = (
