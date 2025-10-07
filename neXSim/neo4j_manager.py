@@ -18,16 +18,18 @@ def search_by_id(tx, _identifiers: list[str]):
     WHERE x.id IN $ids
     RETURN x.id as id,
     x.mainSense as mainSense,
+    x.main_sense as main_sense,
     x.description as description,
     x.synonyms as synonyms,
-    x.type as type
+    x.type as type,
+    x.synset_type as synset_type
     """
     result = tx.run(query, ids=_identifiers)
     return [{"id": record["id"],
-             "main_sense": record["mainSense"],
+             "mainSense": record["mainSense"] if record["mainSense"] else record['main_sense'],
              "description": record["description"],
              "synonyms": record["synonyms"],
-             "type": record["type"]}
+             "type": record["type"] if record['type'] else record['synset_type']}
             for record in result]
 
 
@@ -86,44 +88,51 @@ def get_synset_by_lemma_query(tx, _lemma: str, _page: int = 0) -> list[Entity]:
 """
 
 SUMMARY_QUERY = (
+
     """
     UNWIND $ids as _id 
-    MATCH (a:Synset {id:_id})
-    CALL {
+    MATCH (a:Synset {{id:_id}})
+    CALL {{
       WITH a
-      MATCH (a)-[:is_a|instance_of]->(b:Synset)
-      RETURN DISTINCT a.id as for, a.id AS source, "is_a" AS relation, b.id AS target
+      MATCH (a)-[:{is_a}|{instance_of}]->(b:Synset)
+      RETURN DISTINCT a.id as for, a.id AS source, "{is_a}" AS relation, b.id AS target
       UNION ALL
       WITH a
-      MATCH (a)-[:subclass_of*1..]->(b:Synset)
-      RETURN DISTINCT a.id as for, a.id AS source, "is_a" AS relation, b.id AS target
+      MATCH (a)-[:{subclass_of}*1..]->(b:Synset)
+      RETURN DISTINCT a.id as for, a.id AS source, "{is_a}" AS relation, b.id AS target
       UNION ALL
       WITH a
-      MATCH (a)-[:instance_of]->(mid)-[:subclass_of*1..]->(b:Synset)
-      RETURN DISTINCT a.id as for, a.id AS source, "is_a" AS relation, b.id AS target
+      MATCH (a)-[:{instance_of}]->(mid)-[:{subclass_of}*1..]->(b:Synset)
+      RETURN DISTINCT a.id as for, a.id AS source, "{is_a}" AS relation, b.id AS target
       UNION ALL
       WITH a
-      MATCH (a)-[:part_of*1..]->(b:Synset)
-      RETURN DISTINCT a.id as for, a.id AS source, "part_of" AS relation, b.id AS target
+      MATCH (a)-[:{part_of}*1..]->(b:Synset)
+      RETURN DISTINCT a.id as for, a.id AS source, "{is_a}" AS relation, b.id AS target
       UNION ALL
       WITH a
       MATCH (a)-[r]->(b:Synset)
-      WHERE type(r) <> "instance_of" and type(r) <> "subclass_of" and type(r) <> "is_a" and type(r) <> "part_of"
+      WHERE not type(r) in [
+       "{instance_of}",
+       "{subclass_of}",
+       "{is_a}",
+       "{part_of}" ]
       RETURN DISTINCT a.id as for, a.id AS source, type(r) AS relation, b.id AS target   
-    }
+    }}
     RETURN for, source, relation, target;
     """
 )
 
 
-def compute_oneshot_summary(tx, _entities: list[str]):
-    result = tx.run(SUMMARY_QUERY, ids=_entities)
+def compute_oneshot_summary(tx, _entities: list[str], _upper: bool = False):
+    result = tx.run(SUMMARY_QUERY.format(is_a='IS_A' if _upper else 'is_a',
+                                         subclass_of='SUBCLASS_OF' if _upper else 'subclass_of',
+                                         instance_of='INSTANCE_OF' if _upper else 'instance_of',
+                                         part_of='PART_OF' if _upper else 'part_of'), ids=_entities)
     return [{"source": record["source"],
              "relation": record["relation"],
              "target": record["target"],
              "for": record["for"]}
             for record in result]
-
 
 
 SUBGRAPH_QUERY = """
@@ -134,20 +143,18 @@ WITH dummy, {w}
 WITH dummy
 CALL apoc.path.subgraphAll(dummy,
     {{ uniqueness:'RELATIONSHIP_GLOBAL',
-      relationshipFilter:'x>|SUBCLASS_OF>' }}) 
+      relationshipFilter:'{predicate}>',
+       bfs: false}}) 
 YIELD relationships
 UNWIND relationships AS r
-WITH dummy, startNode(r) AS s, endNode(r) AS t, type(r) AS arc
-WHERE arc = 'SUBCLASS_OF'
-and s IS NOT NULL
-WITH collect({{s:s.id, arc:arc, t:t.id}}) AS rows, dummy
+WITH dummy, startNode(r).id AS s, endNode(r).id AS t, type(r) AS arc
+WHERE arc = '{predicate}' and s <> dummy and t <> dummy
 DETACH DELETE dummy
-WITH rows
-UNWIND rows AS row
-RETURN row.s AS source, row.arc AS relation, row.t AS target
+RETURN s AS source, arc AS relation, t AS target
 """
 
-def compute_subgraph(tx, _to_attach: list[str], _relation: str):
+
+def compute_subgraph(tx, _to_attach: list[str], _relation: str, _upper:bool = False):
     params: dict[str, str] = {}
     _match = ""
     _with = ""
@@ -156,38 +163,39 @@ def compute_subgraph(tx, _to_attach: list[str], _relation: str):
         params[f"e{i}"] = _to_attach[i]
         _match += f'MATCH (e{i}:Synset {{id:"{_to_attach[i]}"}}) '
         _with += f"e{i}, "
-        _merge += f"MERGE (dummy)-[:x]->(e{i}) "
+        _merge += f"MERGE (dummy)-[:{_relation}]->(e{i}) "
     _with = _with[:-2]
-
-    if _relation == 'subclass_of' or _relation == 'part_of':
+    if (((_upper and _relation == 'SUBCLASS_OF') or (_upper and _relation == 'PART_OF')) or
+        ((not _upper and _relation == 'subclass_of') or (not _upper and _relation == 'part_of'))):
         inst_query = SUBGRAPH_QUERY.format(match=_match, w=_with, merge=_merge, predicate=_relation)
-        # print(inst_query)
         result = tx.run(inst_query)
+        return [{"source": record["source"],
+                 "relation": record["relation"],
+                 "target": record["target"]}
+                for record in result]
     else:
         raise Exception(f"Subgraph not defined for relation {_relation}")
-    return [{"source": record["source"],
-             "relation": record["relation"],
-             "target": record["target"]}
-            for record in result]
-
-
-
-def compute_sound_relationships(tx, nodes: list[str]):
-    pass
 
 
 OTHERS_QUERY = (
     """
     UNWIND $ids AS _id
-    MATCH (a:Synset {id:_id})-[r]->(b:Synset)
-    WHERE not type(r) in ['instance_of', 'subclass_of', 'is_a', 'part_of']
+    MATCH (a:Synset {{id:_id}})-[r]->(b:Synset)
+    WHERE not type(r) in [
+       "{instance_of}",
+       "{subclass_of}",
+       "{is_a}",
+       "{part_of}" ]]
     RETURN DISTINCT a.id AS source, type(r) AS relation, b.id AS target
     """
 )
 
 
-def compute_others(tx, _entities: str):
-    result = tx.run(OTHERS_QUERY, ids=_entities)
+def compute_others(tx, _entities: str, _upper: bool = False):
+    result = tx.run(OTHERS_QUERY.format(is_a='IS_A' if _upper else 'is_a',
+                                         subclass_of='SUBCLASS_OF' if _upper else 'subclass_of',
+                                         instance_of='INSTANCE_OF' if _upper else 'instance_of',
+                                         part_of='PART_OF' if _upper else 'part_of'), ids=_entities)
     return [{"source": record["source"],
              "relation": record["relation"],
              "target": record["target"]}
@@ -197,23 +205,42 @@ def compute_others(tx, _entities: str):
 DIRECT_INSTANCES_QUERY = (
     """
     UNWIND $ids as _id 
-    MATCH (a:Synset {id:_id})
-    CALL {
+    MATCH (a:Synset {{id:_id}})
+    CALL {{
       WITH a
-      MATCH (a)-[r:instance_of|is_a]->(b:Synset)
+      MATCH (a)-[r:{names}]->(b:Synset)
       RETURN DISTINCT a.id as for, a.id AS source, type(r) AS relation, b.id AS target   
-    }
+    }}
     RETURN for, source, relation, target;
     """
 )
 
 
-def compute_direct_instances(tx, _entities: list[str]):
-    result = tx.run(DIRECT_INSTANCES_QUERY, ids=_entities)
+def compute_direct_instances(tx, _entities: list[str], names: list[str] = None, _upper:bool = False):
+    if names is None:
+        names = ['instance_of', 'is_a', 'subclass_of']
+    if _upper:
+        names = [x.upper() for x in names]
+    _query = DIRECT_INSTANCES_QUERY.format(names="|".join(names))
+    result = tx.run(_query, ids=_entities)
     return [{"source": record["source"],
              "relation": record["relation"],
              "target": record["target"],
-             "type": "OTHER"}
+             "type": "HYPERNYM"}
+            for record in result]
+
+
+def compute_direct_part_of(tx, _entities: list[str], names: list[str] = None, _upper:bool = False):
+    if names is None:
+        names = ['part_of']
+    if _upper:
+        names = [x.upper() for x in names]
+    _query = DIRECT_INSTANCES_QUERY.format(names="|".join(names))
+    result = tx.run(_query, ids=_entities)
+    return [{"source": record["source"],
+             "relation": record["relation"],
+             "target": record["target"],
+             "type": "MERONYM"}
             for record in result]
 
 
@@ -228,6 +255,7 @@ class DatasetManager(metaclass=SingletonMeta):
         self.DATABASE_USERNAME = os.environ.get('NEO4J_DB_USER')
         self.DATABASE_PASSWORD = os.environ.get('NEO4J_DB_PWD')
 
+        self.upper = os.environ.get('PREDICATES_UPPER', 'False').lower() == 'true'
         assert (self.DATABASE_ADDRESS != "" and self.DATABASE_USERNAME != "" and self.DATABASE_PASSWORD != "")
 
         self.driver = GraphDatabase.driver(self.DATABASE_ADDRESS, auth=(self.DATABASE_USERNAME, self.DATABASE_PASSWORD))
@@ -249,24 +277,44 @@ class DatasetManager(metaclass=SingletonMeta):
 
     def get_direct_instances(self, _entities):
         with self.driver.session() as session:
-            return session.execute_read(compute_direct_instances, _entities=_entities)
+            return session.execute_read(compute_direct_instances, _entities=_entities, _upper=self.upper)
+
+    def get_direct_part_of(self, _entities):
+        with self.driver.session() as session:
+            return session.execute_read(compute_direct_part_of, _entities=_entities)
 
     def get_full_summary(self, _entities):
         with self.driver.session() as session:
-            return session.execute_read(compute_oneshot_summary, _entities=_entities)
+            return session.execute_read(compute_oneshot_summary, _entities=_entities, _upper=self.upper)
 
     def get_raw_subclass(self, _entities: list[str], _direct_instances: list[Atom]):
+        if len(_direct_instances) == 0:
+            return []
         import copy
         _new = copy.deepcopy(_entities)
         for i in _direct_instances:
-            _new.append(i.target_id)
+            if (self.upper and i.predicate == "INSTANCE_OF") or (not self.upper and i.predicate == "instance_of"):
+                _new.append(i.target_id)
         with self.driver.session() as session:
-            return session.execute_write(compute_subgraph, _to_attach=_new, _relation="subclass_of")
+            return session.write_transaction(compute_subgraph, _to_attach=_new,
+                                             _relation="SUBCLASS_OF" if self.upper else "subclass_of",
+                                             _upper=self.upper)
 
-    def get_raw_part_of(self, _entities):
+    def get_raw_part_of(self, _entities, _direct_instances):
+        if len(_direct_instances) == 0:
+            return []
         with self.driver.session() as session:
-            return session.execute_write(compute_subgraph, _to_attach=_entities, _relation="part_of")
+            return session.write_transaction(compute_subgraph, _to_attach=_entities,
+                                             _relation="PART_OF" if self.upper else "part_of", _upper=self.upper)
 
     def get_others(self, _entities):
         with self.driver.session() as session:
-            return session.execute_read(compute_others, _entities=_entities)
+            return session.execute_read(compute_others, _entities=_entities, _upper=self.upper)
+
+
+    def clear_query_cache(self):
+        with self.driver.session() as session:
+            result = session.run("CALL db.clearQueryCaches()")
+            report = result.consume()
+            print("Cache cleared")
+            print(f"Result summary: {report.counters}")

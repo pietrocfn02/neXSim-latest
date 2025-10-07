@@ -1,7 +1,10 @@
+import os
+import time
+
 from flask import request
 from flask_restx import Resource, Api
 from pydantic import ValidationError
-from neXSim import app
+from neXSim import app, DatasetManager
 from neXSim.characterization import characterize, kernel_explanation
 from neXSim.models import *
 from neXSim.search import *
@@ -126,8 +129,8 @@ class LCA(Resource):
                 status=400,
                 mimetype='text/plain'
             )
-
-        lca(my_request)
+        upper:bool = os.environ.get('PREDICATES_UPPER') == 'True'
+        lca(my_request, upper)
 
         return app.response_class(
             response=my_request.model_dump_json(),
@@ -201,19 +204,40 @@ class Kernel(Resource):
         )
 
 
-@api.route('/api/unit/report')
+@api.route('/api/unit/report/<string:mode>')
 class Report(Resource):
     @api.response(200, 'Success')
-    def post(self):
+    def post(self, mode):
+        if mode not in ['text', 'json']:
+            return {"error": f"{mode} is not a valid mode. Valid modes are 'text' and 'json'"}, 400
         try:
             _input = NeXSimResponse.model_validate(request.json)
         except ValidationError as e:
             return {"error": e.errors()}, 400
+        if mode == 'text':
+            raw_data = report_all(_input)
+            return app.response_class(
+                response=raw_data,
+                status=200,
+                mimetype='text/plain'
+            )
+        else:
+            _start = time.perf_counter()
+            _unit: NeXSimResponse = NeXSimResponse(unit=_input.unit)
+            full_summary(_unit)
+            characterize(_unit)
+            lca(_unit)
+            kernel_explanation(_unit)
+            _unit.computation_times["total"] = round(time.perf_counter() - _start, 5)
 
-        raw_data = report_all(_input)
+            dm:DatasetManager = DatasetManager()
+            dm.clear_query_cache()
 
-        return app.response_class(
-            response=raw_data,
-            status=200,
-            mimetype='text/plain'
-        )
+            return app.response_class(
+                response=_unit.model_dump_json(),
+                status=200,
+                mimetype='application/json',
+            )
+
+
+

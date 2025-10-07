@@ -9,8 +9,6 @@ loglevel = "info"
 
 # Function to be executed before each request
 
-
-
 def pre_request(worker, req):
     req.start_time = time.time()
     worker.log.info(f"[START] {req.method} {req.path} from {req.remote_addr}")

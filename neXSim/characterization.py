@@ -173,7 +173,7 @@ def kernel_explanation(_input: NeXSimResponse):
             if atom.target_id not in constants_to_names:
                 constants_to_names[atom.target_id] = set()
             constants_to_names[atom.target_id].add(atom.predicate)
-            if atom.predicate not in ['is_a', 'instance_of', 'subclass_of', 'part_of']:
+            if atom.predicate.lower() not in ['is_a', 'instance_of', 'subclass_of', 'part_of']:
                 tmp_atoms.append(atom)
                 tmp_tops.add(atom.source_id)
                 tmp_tops.add(atom.target_id)
@@ -181,15 +181,20 @@ def kernel_explanation(_input: NeXSimResponse):
         for atom in _input.lca:
             tmp_atoms.append(Atom(source_id=entity, target_id=atom.target_id, predicate=atom.predicate))
             tmp_tops.add(atom.target_id)
-        
+
         for constant in constants_to_names.keys():
-            if len(constants_to_names[constant]) > 1 and 'is_a' in constants_to_names[constant]:
-                tmp_atoms.append(Atom(source_id=entity, target_id=constant, predicate='is_a'))
+            if (len(constants_to_names[constant]) > 1
+                    and ('IS_A' in constants_to_names[constant] or 'is_a' in constants_to_names[constant])):
+                tmp_atoms.append(Atom(source_id=entity,
+                                      target_id=constant,
+                                      predicate='IS_A' if 'IS_A' in constants_to_names[constant] else 'is_a'))
                 tmp_tops.add(constant)
-            if len(constants_to_names[constant]) > 1 and 'part_of' in constants_to_names[constant]:
-                tmp_atoms.append(Atom(source_id=entity, target_id=constant, predicate='part_of'))
+            if (len(constants_to_names[constant]) > 1
+                    and ('PART_OF' in constants_to_names[constant] or 'part_of' in constants_to_names[constant])):
+                tmp_atoms.append(Atom(source_id=entity,
+                                      target_id=constant,
+                                      predicate='PART_OF' if 'PART_OF' in constants_to_names[constant] else 'part_of'))
                 tmp_tops.add(constant)
-                
 
         summary_tilde.append(Summary(entity=summary.entity, tops=list(tmp_tops), summary=tmp_atoms))
 
