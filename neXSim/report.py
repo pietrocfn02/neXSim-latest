@@ -104,7 +104,7 @@ def report_all(_input: NeXSimResponse) -> str:
     for atom in _input.kernel_explanation:
         _output += f"{atom_to_outfile(atom, _involved_entities)}\n"
     _output += "\n"
-    _total = time.perf_counter() - _start
+    _total = round(time.perf_counter() - _start,5)
     if _input.computation_times is not None:
         _output += "###############################\n"
         _output += "Computation Times: \n"
