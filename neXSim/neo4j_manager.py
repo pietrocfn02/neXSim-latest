@@ -118,7 +118,7 @@ SUMMARY_QUERY = (
        "{part_of}" ]
       RETURN DISTINCT a.id as for, a.id AS source, type(r) AS relation, b.id AS target   
     }}
-    RETURN for, source, relation, target;
+    RETURN DISTINCT for, source, relation, target;
     """
 )
 
@@ -144,7 +144,7 @@ WITH dummy
 CALL apoc.path.subgraphAll(dummy,
     {{ uniqueness:'RELATIONSHIP_GLOBAL',
       relationshipFilter:'{predicate}>',
-       bfs: false}}) 
+       bfs: true}}) 
 YIELD relationships
 UNWIND relationships AS r
 WITH dummy, startNode(r).id AS s, endNode(r).id AS t, type(r) AS arc
