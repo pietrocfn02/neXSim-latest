@@ -96,6 +96,16 @@ def compute_raw_subgraph_hypernyms(unit: list[str], instances: list[Atom]) -> (l
     return raw_hypernyms, round(time.perf_counter() - _start, 5)
 
 
+def compute_raw_subgraph_hypernyms_no_dummy(unit: list[str], instances: list[Atom]) -> (list[Atom], float):
+    dataset_manager = DatasetManager()
+    _start = time.perf_counter()
+    raw_hypernyms = parse_neo4j_result(dataset_manager.get_raw_subclass_2(_entities=unit,
+                                                                          _direct_instances=instances))
+    raw_hypernyms.extend(instances)
+    return raw_hypernyms, round(time.perf_counter() - _start, 5)
+
+
+
 def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom], upper:bool) -> (list[Atom], float):
     _start = time.perf_counter()
     hypernym_lca: list[Atom] = execute_clingo_lca(inject_facts(unit, raw_hypernyms)
@@ -111,6 +121,16 @@ def compute_raw_subgraph_meronyms(unit: list[str], direct_part_of: list[Atom]) -
     if len(direct_part_of) > 0:
         raw_meronyms = parse_neo4j_result(dataset_manager.get_raw_part_of(_entities=unit,
                                                                           _direct_instances=direct_part_of))
+
+    return raw_meronyms, round(time.perf_counter() - _start, 5)
+
+def compute_raw_subgraph_meronyms_no_dummy(unit: list[str], direct_part_of: list[Atom]) -> (list[Atom], float):
+    dataset_manager = DatasetManager()
+    _start = time.perf_counter()
+    raw_meronyms = []
+    if len(direct_part_of) > 0:
+        raw_meronyms = parse_neo4j_result(dataset_manager.get_raw_part_of_2(_entities=unit,
+                                                                             _direct_instances=direct_part_of))
 
     return raw_meronyms, round(time.perf_counter() - _start, 5)
 

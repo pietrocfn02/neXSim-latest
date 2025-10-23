@@ -4,14 +4,14 @@ import time
 from flask import request
 from flask_restx import Resource, Api
 from pydantic import ValidationError
-from neXSim import app, DatasetManager
+from neXSim import app
 from neXSim.characterization import characterize, kernel_explanation
 from neXSim.models import *
+from neXSim.neo4j_manager import search_by_lemma
 from neXSim.search import *
 from neXSim.summary import full_summary
 from neXSim.lca import lca
-from neXSim.report import report_all
-
+from neXSim.report import report_all, compare_subgraphs
 
 api = Api(app, doc='/api/docs', title='neXSim API', version='0.1', description='neXSim API')
 
@@ -47,6 +47,41 @@ class Index(Resource):
     @api.response(200, 'Success')
     def get(self):
         return "Welcome to neXSim"
+
+
+@api.route('/api/search/<string:lemma>/<int:page>')
+@api.doc(params={'lemma': 'a word or phrase to search for'
+    , 'page': 'the page number (starting from 0)'})
+class SearchByLemma(Resource):
+
+    @api.response(200, 'Success')
+    def get(self, lemma, page):
+
+        # validation: lemma should be at least 3 characters and contain only alphanumeric characters and underscores
+        if not (3 <= len(lemma) <= 100) or not all(c.isalnum() or c == '_' for c in lemma):
+            return app.response_class(
+                response="Invalid lemma. It should be 3-100 characters long and contain only alphanumeric characters and underscores.",
+                status=400,
+                mimetype='text/plain'
+            )
+
+        # validation: page should be a non-negative integer
+        if page < 0:
+            return app.response_class(
+                response="Invalid page number. It should be a non-negative integer.",
+                status=400,
+                mimetype='text/plain'
+            )
+
+        entities = search_by_lemma(lemma, page, 10 * page)
+
+        resp: EntityList = EntityList(entities=list(entities))
+
+        return app.response_class(
+            response=(resp.model_dump_json()),
+            status=200,
+            mimetype='application/json'
+        )
 
 
 # Receives a list of valid Babelnet ids as a parameter
@@ -230,8 +265,8 @@ class Report(Resource):
             kernel_explanation(_unit)
             _unit.computation_times["total"] = round(time.perf_counter() - _start, 5)
 
-            dm:DatasetManager = DatasetManager()
-            dm.clear_query_cache()
+            #dm:DatasetManager = DatasetManager()
+            #dm.clear_query_cache()
 
             return app.response_class(
                 response=_unit.model_dump_json(),
@@ -239,5 +274,23 @@ class Report(Resource):
                 mimetype='application/json',
             )
 
+@api.route('/api/unit/test_sg/')
+class UnitTest(Resource):
+    @api.response(200, 'Success')
+    def post(self):
+        try:
+            _input = NeXSimResponse.model_validate(request.json)
+        except ValidationError as e:
+            return {"error": e.errors()}, 400
+
+
+        return_values = compare_subgraphs(_input)
+
+        import json
+        return app.response_class(
+            response=json.dumps(return_values),
+            status=200,
+            mimetype='application/json',
+        )
 
 

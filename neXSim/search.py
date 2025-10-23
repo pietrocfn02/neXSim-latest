@@ -39,6 +39,5 @@ def search_by_id(identifiers: list[str], on_graph: bool = True) -> set[Entity]:
     return result_to_entity_set(postgres_instance.get_entities(identifiers))
 
 
-def search_by_lemma_batched(lemma: str, page: int = 0, skip: int = 0) -> set[Entity]:
-    connection = neo4j_instance
-    return result_to_entity_set(connection.get_entities_by_lemma(lemma, page, skip))
+def search_by_lemma(lemma: str, page: int = 0, skip: int = 0) -> set[Entity]:
+    return result_to_entity_set(neo4j_instance.get_entities_by_lemma(lemma, page, skip))
