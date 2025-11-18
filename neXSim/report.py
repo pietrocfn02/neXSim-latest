@@ -2,11 +2,11 @@ import time
 
 from neXSim.models import NeXSimResponse, Entity, Atom, Variable
 from neXSim.search import search_by_id
-from neXSim.lca import lca, compute_raw_subgraph_hypernyms, compute_raw_subgraph_meronyms, compute_direct_instances, \
-    compute_direct_part_of, compute_raw_subgraph_hypernyms_no_dummy, compute_raw_subgraph_meronyms_no_dummy
+from neXSim.lca import lca, compute_raw_subgraph_meronyms, compute_raw_subgraph_meronyms_no_dummy_sg, \
+    compute_direct_instances, compute_direct_part_of, \
+    compute_raw_subgraph_hypernyms_no_dummy_sg, compute_raw_subgraph_hypernyms
 from neXSim.summary import full_summary
 from neXSim.characterization import characterize, kernel_explanation
-
 
 def find_entity_from_list(to_find: str, collection: set[Entity]) -> Entity | str:
     for entity in collection:
@@ -76,8 +76,8 @@ def report_all(_input: NeXSimResponse) -> str:
 
     direct_instances: list[Atom] = compute_direct_instances(_input.unit)[0]
     direct_part_of: list[Atom] = compute_direct_part_of(_input.unit)[0]
-    raw_subgraph_hypernyms: list[Atom] = compute_raw_subgraph_hypernyms(_input.unit, direct_instances)[0]
-    raw_subgraph_meronyms: list[Atom] = compute_raw_subgraph_meronyms(_input.unit, direct_part_of)[0]
+    raw_subgraph_hypernyms: list[Atom] = compute_raw_subgraph_hypernyms_no_dummy_sg(_input.unit, direct_instances)[0]
+    raw_subgraph_meronyms: list[Atom] = compute_raw_subgraph_meronyms_no_dummy_sg(_input.unit, direct_part_of)[0]
     _output += "Direct Instances: \n"
     for direct_instance in direct_instances:
         _output += f"{atom_to_outfile(direct_instance, _involved_entities)}\n"
@@ -116,7 +116,6 @@ def report_all(_input: NeXSimResponse) -> str:
 
 
 
-
 def compare_subgraphs(_input: NeXSimResponse)-> dict:
 
     return_value = {}
@@ -134,10 +133,9 @@ def compare_subgraphs(_input: NeXSimResponse)-> dict:
     r1_h: (list[Atom], float) = compute_raw_subgraph_hypernyms(_input.unit, direct_instances)
     r1_m: (list[Atom], float) = compute_raw_subgraph_meronyms(_input.unit, direct_part_of)
 
-
     # Method 2
-    r2_h: (list[Atom], float) = compute_raw_subgraph_hypernyms_no_dummy(_input.unit, direct_instances)
-    r2_m: (list[Atom], float) = compute_raw_subgraph_meronyms_no_dummy(_input.unit, direct_part_of)
+    r2_h: (list[Atom], float) = compute_raw_subgraph_hypernyms_no_dummy_sg(_input.unit, direct_instances)
+    r2_m: (list[Atom], float) = compute_raw_subgraph_meronyms_no_dummy_sg(_input.unit, direct_part_of)
 
     times_1 = (r1_h[1], r1_m[1])
     times_2 = (r2_h[1], r2_m[1])
