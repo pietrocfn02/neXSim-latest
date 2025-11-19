@@ -7,11 +7,10 @@ from pydantic import ValidationError
 from neXSim import app
 from neXSim.characterization import characterize, kernel_explanation
 from neXSim.models import *
-from neXSim.neo4j_manager import search_by_lemma
 from neXSim.search import *
 from neXSim.summary import full_summary
 from neXSim.lca import lca
-from neXSim.report import report_all, compare_subgraphs
+from neXSim.report import report_all
 
 api = Api(app, doc='/api/docs', title='neXSim API', version='0.1', description='neXSim API')
 
@@ -59,6 +58,7 @@ class SearchByLemma(Resource):
 
         # validation: lemma should be at least 3 characters and contain only alphanumeric characters and underscores
         if not (3 <= len(lemma) <= 100) or not all(c.isalnum() or c == '_' for c in lemma):
+
             return app.response_class(
                 response="Invalid lemma. It should be 3-100 characters long and contain only alphanumeric characters and underscores.",
                 status=400,
@@ -67,6 +67,7 @@ class SearchByLemma(Resource):
 
         # validation: page should be a non-negative integer
         if page < 0:
+
             return app.response_class(
                 response="Invalid page number. It should be a non-negative integer.",
                 status=400,
@@ -164,7 +165,7 @@ class LCA(Resource):
                 status=400,
                 mimetype='text/plain'
             )
-        upper:bool = os.environ.get('PREDICATES_UPPER') == 'True'
+        upper: bool = os.environ.get('PREDICATES_UPPER') == 'True'
         lca(my_request, upper)
 
         return app.response_class(
@@ -231,7 +232,6 @@ class Kernel(Resource):
 
         kernel_explanation(my_request)
 
-
         return app.response_class(
             response=my_request.model_dump_json(),
             status=200,
@@ -265,32 +265,11 @@ class Report(Resource):
             kernel_explanation(_unit)
             _unit.computation_times["total"] = round(time.perf_counter() - _start, 5)
 
-            #dm:DatasetManager = DatasetManager()
-            #dm.clear_query_cache()
+            # dm:DatasetManager = DatasetManager()
+            # dm.clear_query_cache()
 
             return app.response_class(
                 response=_unit.model_dump_json(),
                 status=200,
                 mimetype='application/json',
             )
-
-@api.route('/api/unit/test_sg/')
-class UnitTest(Resource):
-    @api.response(200, 'Success')
-    def post(self):
-        try:
-            _input = NeXSimResponse.model_validate(request.json)
-        except ValidationError as e:
-            return {"error": e.errors()}, 400
-
-
-        return_values = compare_subgraphs(_input)
-
-        import json
-        return app.response_class(
-            response=json.dumps(return_values),
-            status=200,
-            mimetype='application/json',
-        )
-
-

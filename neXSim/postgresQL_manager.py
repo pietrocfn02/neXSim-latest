@@ -42,11 +42,8 @@ class PostgresQLConnector(metaclass=SingletonMeta):
             parameter += f"'{_id}',"
         parameter = parameter[:-1]
         sql =f""" SELECT s.* from synset s where s.id in ({parameter})"""
-        print(sql)
         with psycopg.connect(self.PG_DSN) as conn:
             conn.row_factory = dict_row
             with conn.cursor() as cur:
-                print("executing query")
                 cur.execute(sql, ())
-                print("executed")
                 return cur.fetchall()

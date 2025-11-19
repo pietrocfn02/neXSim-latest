@@ -2,21 +2,22 @@ import time
 
 from neXSim.models import NeXSimResponse, Entity, Atom, Variable
 from neXSim.search import search_by_id
-from neXSim.lca import lca, compute_raw_subgraph_meronyms, compute_raw_subgraph_meronyms_no_dummy_sg, \
-    compute_direct_instances, compute_direct_part_of, \
-    compute_raw_subgraph_hypernyms_no_dummy_sg, compute_raw_subgraph_hypernyms
+from neXSim.lca import (lca, compute_raw_subgraph_meronyms_no_dummy_sg, compute_direct_instances,
+                        compute_direct_part_of, compute_raw_subgraph_hypernyms_no_dummy_sg)
 from neXSim.summary import full_summary
 from neXSim.characterization import characterize, kernel_explanation
+
 
 def find_entity_from_list(to_find: str, collection: set[Entity]) -> Entity | str:
     for entity in collection:
         if entity.id == to_find:
             return entity
-    #tmp: set[Entity] = search_by_id([to_find])
-    #if len(tmp) > 0:
+    # tmp: set[Entity] = search_by_id([to_find])
+    # if len(tmp) > 0:
     #    for entity in tmp:
     #        return entity
     return to_find
+
 
 def entity_to_outfile(e: Entity | str) -> str:
     if isinstance(e, Entity):
@@ -104,7 +105,7 @@ def report_all(_input: NeXSimResponse) -> str:
     for atom in _input.kernel_explanation:
         _output += f"{atom_to_outfile(atom, _involved_entities)}\n"
     _output += "\n"
-    _total = round(time.perf_counter() - _start,5)
+    _total = round(time.perf_counter() - _start, 5)
     if _input.computation_times is not None:
         _output += "###############################\n"
         _output += "Computation Times: \n"
@@ -113,73 +114,3 @@ def report_all(_input: NeXSimResponse) -> str:
         _output += f"Total Computation Time: {_total} s\n"
         _output += "###############################"
     return _output
-
-
-
-def compare_subgraphs(_input: NeXSimResponse)-> dict:
-
-    return_value = {}
-
-    if _input.unit is None or len(_input.unit) == 0:
-        raise ValueError("Empty unit!")
-    _entities: set[Entity] = search_by_id(_input.unit)
-    if _input.summaries is None:
-        full_summary(_input)
-
-    direct_instances: list[Atom] = compute_direct_instances(_input.unit)[0]
-    direct_part_of: list[Atom] = compute_direct_part_of(_input.unit)[0]
-
-    # Method 1
-    r1_h: (list[Atom], float) = compute_raw_subgraph_hypernyms(_input.unit, direct_instances)
-    r1_m: (list[Atom], float) = compute_raw_subgraph_meronyms(_input.unit, direct_part_of)
-
-    # Method 2
-    r2_h: (list[Atom], float) = compute_raw_subgraph_hypernyms_no_dummy_sg(_input.unit, direct_instances)
-    r2_m: (list[Atom], float) = compute_raw_subgraph_meronyms_no_dummy_sg(_input.unit, direct_part_of)
-
-    times_1 = (r1_h[1], r1_m[1])
-    times_2 = (r2_h[1], r2_m[1])
-
-
-    #return_value["h_with_dummy"] = r1_h[0]
-    #return_value["m_with_dummy"] = r1_m[0]
-    #return_value["h_without_dummy"] = r2_h[0]
-    #return_value["m_without_dummy"] = r2_m[0]
-    return_value["times"] = {
-        "h_with_dummy": times_1[0],
-        "m_with_dummy": times_1[1],
-        "h_without_dummy": times_2[0],
-        "m_without_dummy": times_2[1],
-    }
-    return_value["all_equal"] = True
-    return_value["differences"] = []
-
-    print(len(r1_h[0]), len(r2_h[0]), len(r1_m[0]), len(r2_m[0]))
-    if len(r1_h[0]) != len(r2_h[0]) or len(r2_m[0]) != len(r1_m[0]):
-        print("Different sizes!")
-        return_value["all_equal"] = False
-        return_value["differences"].append("Different sizes!")
-
-    else:
-        for atom in r1_h[0]:
-            if atom not in r2_h[0]:
-                print(f"Found {atom} with method 1 but not with method 2")
-                return_value["all_equal"] = False
-                return_value["differences"].append("Found {atom} with method 1 but not with method 2 (h)")
-        for atom in r2_h[0]:
-            if atom not in r1_h[0]:
-                print(f"Found {atom} with method 2 but not with method 1")
-                return_value["all_equal"] = False
-                return_value["differences"].append("Found {atom} with method 2 but not with method 1 (h)")
-        for atom in r1_m[0]:
-            if atom not in r2_m[0]:
-                print(f"Found {atom} with method 1 but not with method 2")
-                return_value["all_equal"] = False
-                return_value["differences"].append("Found {atom} with method 1 but not with method 2 (m)")
-        for atom in r2_m[0]:
-            if atom not in r1_m[0]:
-                print(f"Found {atom} with method 2 but not with method 1")
-                return_value["all_equal"] = False
-                return_value["differences"].append("Found {atom} with method 2 but not with method 1 (m)")
-
-    return return_value

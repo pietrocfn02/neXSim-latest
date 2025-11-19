@@ -3,7 +3,7 @@ import os
 
 from neo4j.exceptions import Neo4jError, ServiceUnavailable, AuthError
 
-from neXSim.models import Atom, Entity, EntityType
+from neXSim.models import Atom, EntityType
 
 DATABASE_ADDRESS = ""
 DATABASE_NAME = ""
@@ -31,9 +31,9 @@ def search_by_id(tx, _identifiers: list[str]):
             for record in result]
 
 
+def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0):
+    # lemma = remove_lucene_special_characters(_lemma)
 
-def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0) -> list[Entity]:
-    #lemma = remove_lucene_special_characters(_lemma)
     tokens = _lemma.split(" ")
 
     if len(tokens) == 0:
@@ -56,7 +56,7 @@ def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0) -> list[Ent
         main_sense_str += "main_sense:%s* AND "
         synonyms_str += "synonyms:%s AND "
 
-    main_sense_str = f"({main_sense_str[:-5]})^3"
+    main_sense_str = f"({main_sense_str[:-5]})"
     synonyms_str = f"({synonyms_str[:-5]})"
     params_str = f"[{(params_str + params_str)[:-1]}]"
 
@@ -65,16 +65,40 @@ def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0) -> list[Ent
 
     skip = _page * 10
 
-    result = tx.run(f"""CALL db.index.fulltext.queryNodes("mainSensesAndSynonyms", 
-    apoc.text.format("{main_sense_str} OR {synonyms_str}", {params_str})) YIELD node,
-                     score WITH node, score ORDER BY node.num_rel*score DESC, node.id 
-                    RETURN node.id as id, node.main_sense as main_sense, node.synonyms as synonyms, 
-                    node.description as description, node.image_url as image_url SKIP {skip} LIMIT 10"""
-                    , parameters=params)
 
-    entities = []
-    return entities
 
+    query = """CALL db.index.fulltext.queryNodes("mainSensesAndSynonyms",
+    apoc.text.format("{main_sense_str} OR {synonyms_str}", {params_str})) 
+                    YIELD node, score WITH node, score 
+                    ORDER BY score * node.undirected_edges DESC
+                    RETURN node.id as id, 
+                    node.mainSense as mainSense,
+                    node.description as description,
+                    node.synonyms as synonyms,
+                    node.type as type, 
+                    score,
+                    score * node.undirected_edges as refined_score,
+                    node.undirected_edges as ue,
+                    1 - apoc.text.jaroWinklerDistance("{lemma}", node.mainSense) as jws
+                    SKIP {skip} LIMIT 1000""".format(main_sense_str=main_sense_str,
+                                                    synonyms_str=synonyms_str,
+                                                    params_str=params_str,
+                                                    lemma=_lemma,
+                                                   skip=skip)
+    result = tx.run(query, parameters=params)
+
+    to_send = []
+
+    for record in result:
+        to_send.append({"id": record["id"],
+             "mainSense": record["mainSense"] if record["mainSense"] else "",
+             "description": record["description"],
+             "synonyms": record["synonyms"],
+             "type": record["type"] if record['type'] else EntityType.NAMED_ENTITY}
+                   )
+
+
+    return to_send
 
 SUMMARY_QUERY = (
 
@@ -124,9 +148,7 @@ def compute_oneshot_summary(tx, _entities: list[str], _upper: bool = False):
             for record in result]
 
 
-
-
-SUBGRAPH_QUERY_3 = """
+SUBGRAPH_QUERY = """
 WITH [{ids}] AS ids
 UNWIND ids AS id
 MATCH (s:Synset {{id:id}})
@@ -142,13 +164,14 @@ RETURN DISTINCT startNode(r).id AS source, type(r) AS relation, endNode(r).id AS
 
 """
 
-def compute_subgraph3(tx, _to_attach: list[str], _relation: str, _upper:bool = False):
+
+def compute_subgraph(tx, _to_attach: list[str], _relation: str, _upper: bool = False):
     ids = "'"
-    ids+= "','".join(_to_attach)
+    ids += "','".join(_to_attach)
     ids += "'"
     if (((_upper and _relation == 'SUBCLASS_OF') or (_upper and _relation == 'PART_OF')) or
             ((not _upper and _relation == 'subclass_of') or (not _upper and _relation == 'part_of'))):
-        inst_query = SUBGRAPH_QUERY_3.format(ids=ids, relation=_relation)
+        inst_query = SUBGRAPH_QUERY.format(ids=ids, relation=_relation)
         result = tx.run(inst_query)
         return [{"source": record["source"],
                  "relation": record["relation"],
@@ -156,7 +179,6 @@ def compute_subgraph3(tx, _to_attach: list[str], _relation: str, _upper:bool = F
                 for record in result]
     else:
         raise Exception(f"Subgraph not defined for relation {_relation}")
-
 
 
 OTHERS_QUERY = (
@@ -175,9 +197,9 @@ OTHERS_QUERY = (
 
 def compute_others(tx, _entities: str, _upper: bool = False):
     result = tx.run(OTHERS_QUERY.format(is_a='IS_A' if _upper else 'is_a',
-                                         subclass_of='SUBCLASS_OF' if _upper else 'subclass_of',
-                                         instance_of='INSTANCE_OF' if _upper else 'instance_of',
-                                         part_of='PART_OF' if _upper else 'part_of'), ids=_entities)
+                                        subclass_of='SUBCLASS_OF' if _upper else 'subclass_of',
+                                        instance_of='INSTANCE_OF' if _upper else 'instance_of',
+                                        part_of='PART_OF' if _upper else 'part_of'), ids=_entities)
     return [{"source": record["source"],
              "relation": record["relation"],
              "target": record["target"]}
@@ -198,7 +220,7 @@ DIRECT_INSTANCES_QUERY = (
 )
 
 
-def compute_direct_instances(tx, _entities: list[str], names: list[str] = None, _upper:bool = False):
+def compute_direct_instances(tx, _entities: list[str], names: list[str] = None, _upper: bool = False):
     if names is None:
         names = ['instance_of', 'is_a', 'subclass_of']
     if _upper:
@@ -212,7 +234,7 @@ def compute_direct_instances(tx, _entities: list[str], names: list[str] = None, 
             for record in result]
 
 
-def compute_direct_part_of(tx, _entities: list[str], names: list[str] = None, _upper:bool = False):
+def compute_direct_part_of(tx, _entities: list[str], names: list[str] = None, _upper: bool = False):
     if names is None:
         names = ['part_of']
     if _upper:
@@ -269,35 +291,30 @@ class DatasetManager(metaclass=SingletonMeta):
         with self.driver.session() as session:
             return session.execute_read(compute_oneshot_summary, _entities=_entities, _upper=self.upper)
 
-
-    def get_raw_subclass_3(self, _entities: list[str], _direct_instances: list[Atom]):
+    def get_raw_subclass(self, _entities: list[str], _direct_instances: list[Atom]):
         import copy
         _new = copy.deepcopy(_entities)
         for i in _direct_instances:
             if (self.upper and i.predicate == "INSTANCE_OF") or (not self.upper and i.predicate == "instance_of"):
                 _new.append(i.target_id)
         with self.driver.session() as session:
-            return session.write_transaction(compute_subgraph3, _to_attach=_new,
+            return session.write_transaction(compute_subgraph, _to_attach=_new,
                                              _relation="SUBCLASS_OF" if self.upper else "subclass_of",
-                                             _upper=self.upper)                                             
+                                             _upper=self.upper)
 
-
-    def get_raw_part_of_3(self, _entities, _direct_instances):
+    def get_raw_part_of(self, _entities, _direct_instances):
         if len(_direct_instances) == 0:
             return []
         with self.driver.session() as session:
-            return session.write_transaction(compute_subgraph3, _to_attach=_entities,
+            return session.write_transaction(compute_subgraph, _to_attach=_entities,
                                              _relation="PART_OF" if self.upper else "part_of", _upper=self.upper)
-
 
     def get_others(self, _entities):
         with self.driver.session() as session:
             return session.execute_read(compute_others, _entities=_entities, _upper=self.upper)
 
-
     def clear_query_cache(self):
         with self.driver.session() as session:
             result = session.run("CALL db.clearQueryCaches()")
             report = result.consume()
-            print("Cache cleared")
-            print(f"Result summary: {report.counters}")
+

@@ -90,8 +90,8 @@ def compute_direct_part_of(unit: list[str]) -> (list[Atom], float):
 def compute_raw_subgraph_hypernyms_no_dummy_sg(unit: list[str], instances: list[Atom]) -> (list[Atom], float):
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
-    raw_hypernyms = parse_neo4j_result(dataset_manager.get_raw_subclass_3(_entities=unit,
-                                                                          _direct_instances=instances))
+    raw_hypernyms = parse_neo4j_result(dataset_manager.get_raw_subclass(_entities=unit,
+                                                                        _direct_instances=instances))
     raw_hypernyms.extend(instances)
     return raw_hypernyms, round(time.perf_counter() - _start, 5)
 
@@ -110,8 +110,8 @@ def compute_raw_subgraph_meronyms_no_dummy_sg(unit: list[str], direct_part_of: l
     _start = time.perf_counter()
     raw_meronyms = []
     if len(direct_part_of) > 0:
-        raw_meronyms = parse_neo4j_result(dataset_manager.get_raw_part_of_3(_entities=unit,
-                                                                             _direct_instances=direct_part_of))
+        raw_meronyms = parse_neo4j_result(dataset_manager.get_raw_part_of(_entities=unit,
+                                                                          _direct_instances=direct_part_of))
 
     return raw_meronyms, round(time.perf_counter() - _start, 5)
 
@@ -147,7 +147,7 @@ def lca(_input: NeXSimResponse, _upper:bool=False):
     raw_hypernyms.extend(hypernym_subgraph_result)
 
     # Step 2: Hypernym LCA with "Clingo"
-    # print("Starting clingo program for hypernyms...")
+
 
     hypernym_lca, computation_times["hypernym_lca"] = compute_hypernym_lca(unit=_input.unit,
                                                                            raw_hypernyms=raw_hypernyms,
@@ -159,7 +159,6 @@ def lca(_input: NeXSimResponse, _upper:bool=False):
                                                                                          direct_part_of=direct_part_of)
 
     # Step 4: Meronym LCA with "Clingo"
-    # print("Starting clingo program for meronyms...")
 
     meronym_lca, computation_times["meronym_lca"] = compute_meronym_lca(unit=_input.unit,
                                                                         raw_meronyms=raw_meronyms,
