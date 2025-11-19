@@ -76,10 +76,6 @@ def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0):
                     node.description as description,
                     node.synonyms as synonyms,
                     node.type as type, 
-                    score,
-                    score * node.undirected_edges as refined_score,
-                    node.undirected_edges as ue,
-                    1 - apoc.text.jaroWinklerDistance("{lemma}", node.mainSense) as jws
                     SKIP {skip} LIMIT 10""".format(main_sense_str=main_sense_str,
                                                     synonyms_str=synonyms_str,
                                                     params_str=params_str,
