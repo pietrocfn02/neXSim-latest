@@ -75,7 +75,7 @@ def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0):
                     node.mainSense as mainSense,
                     node.description as description,
                     node.synonyms as synonyms,
-                    node.type as type, 
+                    node.type as type 
                     SKIP {skip} LIMIT 10""".format(main_sense_str=main_sense_str,
                                                     synonyms_str=synonyms_str,
                                                     params_str=params_str,
@@ -312,5 +312,4 @@ class DatasetManager(metaclass=SingletonMeta):
     def clear_query_cache(self):
         with self.driver.session() as session:
             result = session.run("CALL db.clearQueryCaches()")
-            report = result.consume()
 
