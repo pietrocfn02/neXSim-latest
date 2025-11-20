@@ -254,7 +254,8 @@ class Report(Resource):
             return app.response_class(
                 response=raw_data,
                 status=200,
-                mimetype='text/plain'
+                mimetype='text/plain',
+                headers={'Content-Disposition': 'attachment; filename=report.txt'}
             )
         else:
             _start = time.perf_counter()
@@ -265,11 +266,9 @@ class Report(Resource):
             kernel_explanation(_unit)
             _unit.computation_times["total"] = round(time.perf_counter() - _start, 5)
 
-            # dm:DatasetManager = DatasetManager()
-            # dm.clear_query_cache()
-
             return app.response_class(
                 response=_unit.model_dump_json(),
                 status=200,
                 mimetype='application/json',
+                headers={'Content-Disposition': 'attachment; filename=report.json'}
             )

@@ -138,5 +138,6 @@ class NeXSimResponse(BaseModel):
     summaries: Optional[list[Summary]] = None
     lca: Optional[list[Atom]] = None
     characterization: Optional[list[Atom]] = None
+    tops: Optional[list[Union[BabelNetID, Variable]]] = None
     kernel_explanation: Optional[list[Atom]] = None
     computation_times: Optional[dict[str, float]] = None

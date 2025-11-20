@@ -152,6 +152,11 @@ def characterize(_input: NeXSimResponse):
     _start = time.perf_counter()
     summaries = copy.deepcopy(_input.summaries)
     _input.characterization = compute_characterization(summaries)
+    tops = set()
+    for atom in _input.characterization:
+        tops.add(str(atom.target_id))
+        tops.add(str(atom.source_id))
+    _input.tops = list(tops)
     if _input.computation_times is None:
         _input.computation_times = {"characterization": round(time.perf_counter() - _start, 5)}
     else:
