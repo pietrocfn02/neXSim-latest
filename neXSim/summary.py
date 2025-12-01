@@ -29,4 +29,5 @@ def full_summary(_input: NeXSimResponse):
     if _input.computation_times is None:
         _input.computation_times = {"summary": round(time.perf_counter() - _start, 5)}
     else:
-        _input.computation_times["summary"] = round(time.perf_counter() - _start, 5)
+        ct = _input.computation_times
+        ct["summary"] = round(time.perf_counter() - _start, 5)

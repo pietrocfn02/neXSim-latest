@@ -312,4 +312,5 @@ class DatasetManager(metaclass=SingletonMeta):
     def clear_query_cache(self):
         with self.driver.session() as session:
             result = session.run("CALL db.clearQueryCaches()")
+            return result
 

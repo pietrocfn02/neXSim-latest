@@ -58,7 +58,7 @@ def compute_pairwise_characterization(_left_operand: list[Atom],
                                       _free_variable: Variable) -> list[Atom]:
     # Since the summaries are transitively-closed outgoing edges,
     # we can state that for each atom p(a,b), a is ALWAYS the summarized entity
-    # THIS IS AN ASSUMPION for this specific algorithm
+    # THIS IS AN ASSUMPTION for this specific algorithm
 
     # I'll take the intersection of predicates
     common_predicates = (set([x.predicate for x in _left_operand])
@@ -160,7 +160,8 @@ def characterize(_input: NeXSimResponse):
     if _input.computation_times is None:
         _input.computation_times = {"characterization": round(time.perf_counter() - _start, 5)}
     else:
-        _input.computation_times["characterization"] = round(time.perf_counter() - _start, 5)
+        ct = _input.computation_times
+        ct["characterization"] = round(time.perf_counter() - _start, 5)
 
 
 # kernel explanation is a characterization-like explanation
@@ -208,7 +209,8 @@ def kernel_explanation(_input: NeXSimResponse):
     if _input.computation_times is None:
         _input.computation_times = {"ker": round(time.perf_counter() - _start, 5)}
     else:
-        _input.computation_times["ker"] = round(time.perf_counter() - _start, 5)
+        ct = _input.computation_times
+        ct["ker"] = round(time.perf_counter() - _start, 5)
 
 
 # the characterization obtained via "direct product" of summaries

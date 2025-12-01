@@ -264,7 +264,14 @@ class Report(Resource):
             characterize(_unit)
             lca(_unit)
             kernel_explanation(_unit)
-            _unit.computation_times["total"] = round(time.perf_counter() - _start, 5)
+            if _unit.computation_times is None:
+                _unit.computation_times = {}
+
+            ct = _unit.computation_times
+
+            ct["total_clock_time"] = round(time.perf_counter() - _start, 5)
+            ct["total_core_time"] = round(ct["summary"]+ ct["characterization"], 5)
+            ct["total_ker_time"] = round(ct["summary"]+ ct["lca"]+ ct["ker"], 5)
 
             return app.response_class(
                 response=_unit.model_dump_json(),

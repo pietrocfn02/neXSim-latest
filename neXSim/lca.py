@@ -27,8 +27,6 @@ leastCommon(X) :- common(X), not noLeastCommon(X).
 
 import clingo
 
-ENDLINE: str = '.\n'
-
 
 def inject_facts(entities: list[str], relations: list[Atom]) -> str:
     facts = ""
@@ -73,21 +71,21 @@ def parse_neo4j_result(neo4j_result) -> list[Atom]:
     return parsed
 
 
-def compute_direct_instances(unit: list[str]) -> (list[Atom], float):
+def compute_direct_instances(unit: list[str]) -> tuple[list[Atom], float]:
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
     direct_instances = parse_neo4j_result(dataset_manager.get_direct_instances(_entities=unit))
     return direct_instances, round(time.perf_counter() - _start, 5)
 
 
-def compute_direct_part_of(unit: list[str]) -> (list[Atom], float):
+def compute_direct_part_of(unit: list[str]) -> tuple[list[Atom], float]:
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
     direct_part_of = parse_neo4j_result(dataset_manager.get_direct_part_of(_entities=unit))
     return direct_part_of, round(time.perf_counter() - _start, 5)
 
 
-def compute_raw_subgraph_hypernyms_no_dummy_sg(unit: list[str], instances: list[Atom]) -> (list[Atom], float):
+def compute_raw_subgraph_hypernyms_no_dummy_sg(unit: list[str], instances: list[Atom]) -> tuple[list[Atom], float]:
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
     raw_hypernyms = parse_neo4j_result(dataset_manager.get_raw_subclass(_entities=unit,
@@ -97,7 +95,7 @@ def compute_raw_subgraph_hypernyms_no_dummy_sg(unit: list[str], instances: list[
 
 
 
-def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom], upper:bool) -> (list[Atom], float):
+def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom], upper:bool) -> tuple[list[Atom], float]:
     _start = time.perf_counter()
     hypernym_lca: list[Atom] = execute_clingo_lca(inject_facts(unit, raw_hypernyms)
                                                   + LCA_PROGRAM.format(r="is_a") + HYPERNYM_TRANSITIVE_CLOSURE,
@@ -105,7 +103,7 @@ def compute_hypernym_lca(unit: list[str], raw_hypernyms: list[Atom], upper:bool)
     return hypernym_lca, round(time.perf_counter() - _start, 5)
 
 
-def compute_raw_subgraph_meronyms_no_dummy_sg(unit: list[str], direct_part_of: list[Atom]) -> (list[Atom], float):
+def compute_raw_subgraph_meronyms_no_dummy_sg(unit: list[str], direct_part_of: list[Atom]) -> tuple[list[Atom], float]:
     dataset_manager = DatasetManager()
     _start = time.perf_counter()
     raw_meronyms = []
@@ -117,7 +115,7 @@ def compute_raw_subgraph_meronyms_no_dummy_sg(unit: list[str], direct_part_of: l
 
 
 
-def compute_meronym_lca(unit: list[str], raw_meronyms: list[Atom], upper:bool) -> (list[Atom], float):
+def compute_meronym_lca(unit: list[str], raw_meronyms: list[Atom], upper:bool) -> tuple[list[Atom], float]:
     _start = time.perf_counter()
     meronym_lca: list[Atom] = execute_clingo_lca(inject_facts(unit, raw_meronyms)
                                                  + LCA_PROGRAM.format(r="part_of") + MERONYM_TRANSITIVE_CLOSURE,
@@ -173,5 +171,6 @@ def lca(_input: NeXSimResponse, _upper:bool=False):
     if _input.computation_times is None:
         _input.computation_times = {}
 
-    for k in computation_times.keys():
-        _input.computation_times[k] = computation_times[k]
+    ct = _input.computation_times
+    for k in ct.keys():
+        ct[k] = computation_times[k]

@@ -2,8 +2,7 @@ import time
 
 from neXSim.models import NeXSimResponse, Entity, Atom, Variable
 from neXSim.search import search_by_id
-from neXSim.lca import (lca, compute_raw_subgraph_meronyms_no_dummy_sg, compute_direct_instances,
-                        compute_direct_part_of, compute_raw_subgraph_hypernyms_no_dummy_sg)
+from neXSim.lca import lca
 from neXSim.summary import full_summary
 from neXSim.characterization import characterize, kernel_explanation
 
@@ -75,21 +74,6 @@ def report_all(_input: NeXSimResponse) -> str:
         _output += f"{atom_to_outfile(atom, _involved_entities)}\n"
     _output += "\n"
 
-    direct_instances: list[Atom] = compute_direct_instances(_input.unit)[0]
-    direct_part_of: list[Atom] = compute_direct_part_of(_input.unit)[0]
-    raw_subgraph_hypernyms: list[Atom] = compute_raw_subgraph_hypernyms_no_dummy_sg(_input.unit, direct_instances)[0]
-    raw_subgraph_meronyms: list[Atom] = compute_raw_subgraph_meronyms_no_dummy_sg(_input.unit, direct_part_of)[0]
-    _output += "Direct Instances: \n"
-    for direct_instance in direct_instances:
-        _output += f"{atom_to_outfile(direct_instance, _involved_entities)}\n"
-    _output += "Raw Subgraph Hypernyms: \n"
-    for h in raw_subgraph_hypernyms:
-        _output += f"{atom_to_outfile(h, _involved_entities)}\n"
-
-    _output += "Raw Subgraph Meronyms: \n"
-    for m in raw_subgraph_meronyms:
-        _output += f"{atom_to_outfile(m, _involved_entities)}\n"
-
     if _input.characterization is None:
         characterize(_input)
 
@@ -107,10 +91,13 @@ def report_all(_input: NeXSimResponse) -> str:
     _output += "\n"
     _total = round(time.perf_counter() - _start, 5)
     if _input.computation_times is not None:
+        ct = _input.computation_times
         _output += "###############################\n"
         _output += "Computation Times: \n"
-        for entry in _input.computation_times.keys():
-            _output += f"{entry}: {_input.computation_times[entry]} s\n"
-        _output += f"Total Computation Time: {_total} s\n"
+        for entry in ct.keys():
+            _output += f"{entry}: {ct[entry]} s\n"
+        _output += f"Total Clock Time: {_total} s\n"
+        _output += f"Total Core Time: {round(ct["summary"] + ct["characterization"], 5)} s\n"
+        _output += f"Total Ker Time: {round(ct["summary"] + ct["lca"] + ct["ker"],5)} s\n"
         _output += "###############################"
     return _output
