@@ -97,7 +97,7 @@ def report_all(_input: NeXSimResponse) -> str:
         for entry in ct.keys():
             _output += f"{entry}: {ct[entry]} s\n"
         _output += f"Total Clock Time: {_total} s\n"
-        _output += f"Total Core Time: {round(ct["summary"] + ct["characterization"], 5)} s\n"
-        _output += f"Total Ker Time: {round(ct["summary"] + ct["lca"] + ct["ker"],5)} s\n"
+        _output += f"Total Core Time: {round(ct['summary'] + ct['characterization'], 5)} s\n"
+        _output += f"Total Ker Time: {round(ct['summary'] + ct['lca'] + ct['ker'],5)} s\n"
         _output += "###############################"
     return _output

@@ -172,5 +172,5 @@ def lca(_input: NeXSimResponse, _upper:bool=False):
         _input.computation_times = {}
 
     ct = _input.computation_times
-    for k in ct.keys():
+    for k in computation_times.keys():
         ct[k] = computation_times[k]

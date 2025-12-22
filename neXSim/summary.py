@@ -18,6 +18,7 @@ def full_summary(_input: NeXSimResponse):
         _tops[entity] = set()
     for r in neo4j_result:
         _tops[r["for"]].add(r["target"])
+        _tops[r["for"]].add(r["source"])
         _summary_entries[r["for"]].append(Atom(source_id=r["source"],
                                                   target_id=r["target"],
                                                   predicate=r["relation"]))
