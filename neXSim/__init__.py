@@ -10,7 +10,8 @@ neo4j_instance:DatasetManager = DatasetManager()
 postgres_instance:PostgresQLConnector = PostgresQLConnector()
 app = Flask(__name__)
 
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["http://localhost:3000"]}},)
 
 
 from neXSim import router
+
