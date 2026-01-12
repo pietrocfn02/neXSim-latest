@@ -56,15 +56,6 @@ class SearchByLemma(Resource):
     @api.response(200, 'Success')
     def get(self, lemma, page):
 
-        # validation: lemma should be at least 3 characters and contain only alphanumeric characters and underscores
-        if not (3 <= len(lemma) <= 100) or not all(c.isalnum() or c == '_' for c in lemma):
-
-            return app.response_class(
-                response="Invalid lemma. It should be 3-100 characters long and contain only alphanumeric characters and underscores.",
-                status=400,
-                mimetype='text/plain'
-            )
-
         # validation: page should be a non-negative integer
         if page < 0:
 

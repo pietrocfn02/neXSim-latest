@@ -116,7 +116,7 @@ SUMMARY_QUERY = (
       UNION ALL
       WITH a
       MATCH (a)-[:{part_of}*1..]->(b:Synset)
-      RETURN DISTINCT a.id as for, a.id AS source, "{is_a}" AS relation, b.id AS target
+      RETURN DISTINCT a.id as for, a.id AS source, "{part_of}" AS relation, b.id AS target
       UNION ALL
       WITH a
       MATCH (a)-[r]->(b:Synset)
