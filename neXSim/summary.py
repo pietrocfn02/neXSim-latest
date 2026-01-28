@@ -7,8 +7,7 @@ from neXSim import DatasetManager
 def full_summary(_input: NeXSimResponse):
     _start = time.perf_counter()
     entities = _input.unit
-    if _input.summaries is None:
-        _input.summaries = []
+    _input.summaries = []
     d: DatasetManager = DatasetManager()
     _summary_entries: dict[str, list[Atom]] = {}
     _tops: dict[str, set[str]] = {}

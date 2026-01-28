@@ -1,7 +1,7 @@
 import copy
 import time
 
-from neXSim.models import Atom, BabelNetID, NeXSimResponse, Variable, Summary
+from neXSim.models import Atom, BabelNetID, NeXSimResponse, Variable, Summary, Entity
 
 
 def clean_strict_subsets(to_clean: list[set[str]]) -> list[set[str]]:
@@ -111,6 +111,19 @@ def compute_pairwise_characterization(_left_operand: list[Atom],
     return to_return
 
 
+def one_entity_characterization(summary:list[Atom], entity:BabelNetID) -> list[Atom]:
+
+    free_variable = Variable(is_free=True, origin=[entity], nominal=1)
+
+    for atom in summary:
+        if atom.source_id == entity:
+            atom.source_id = free_variable
+        if atom.target_id == entity:
+            atom.target_id = free_variable
+
+    return summary
+
+
 def compute_characterization(summaries):
     summaries = sorted(summaries)
 
@@ -132,8 +145,11 @@ def compute_characterization(summaries):
             atoms.append(tmp)
         new_summaries.append(Summary(entity=e, tops=tops, summary=atoms))
 
-    if len(summaries) <= 1:
-        raise Exception("You need at least two entities to characterize your unit")
+    if len(new_summaries) < 1:
+        raise Exception("You need at least one entity to characterize your unit")
+    elif len(new_summaries) == 1:
+
+        return one_entity_characterization(new_summaries[0].summary, new_summaries[0].entity)
 
     left_operand = new_summaries[0].summary
 
@@ -204,6 +220,7 @@ def kernel_explanation(_input: NeXSimResponse):
 
         summary_tilde.append(Summary(entity=summary.entity, tops=list(tmp_tops), summary=tmp_atoms))
 
+    _input.short_summaries = summary_tilde
     _input.kernel_explanation = compute_characterization(summary_tilde)
 
     if _input.computation_times is None:

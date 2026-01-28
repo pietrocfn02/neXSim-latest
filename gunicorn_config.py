@@ -3,7 +3,7 @@
 import time
 
 bind = '0.0.0.0:8083'
-workers = 16
+workers = 1
 loglevel = "info"
 
 
@@ -34,4 +34,4 @@ worker_abort = worker_abort
 timeout = 99999
 keepalive = 2
 
-max_requests = 2
+max_requests = 20000

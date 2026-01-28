@@ -136,6 +136,7 @@ class Summary(BaseModel):
 class NeXSimResponse(BaseModel):
     unit: list[BabelNetID]
     summaries: Optional[list[Summary]] = None
+    short_summaries : Optional[list[Summary]] = None
     lca: Optional[list[Atom]] = None
     characterization: Optional[list[Atom]] = None
     tops: Optional[list[Union[BabelNetID, Variable]]] = None

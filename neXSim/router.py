@@ -11,11 +11,21 @@ from neXSim.search import *
 from neXSim.summary import full_summary
 from neXSim.lca import lca
 from neXSim.report import report_all
+from neXSim.utils import is_valid_babelnet_id
 
 api = Api(app, doc='/api/docs', title='neXSim API', version='0.1', description='neXSim API')
 
 
-def validate_and_parse(json):
+def validate_and_parse_entity_list(json):
+    try:
+        _input = EntityList.model_validate(json)
+    except ValidationError as e:
+        return {"error": e.errors()}, 400
+
+    return _input
+
+
+def validate_and_parse_nexsim_response(json):
     try:
         _input = NeXSimResponse.model_validate(json)
     except ValidationError as e:
@@ -76,6 +86,58 @@ class SearchByLemma(Resource):
         )
 
 
+def search_by_ids(entities):
+    print(entities[0])
+    for entity in entities:
+        if not is_valid_babelnet_id(entity):
+            return app.response_class(
+                response=f"{entity} is not a valid babelnet id",
+                status=400,
+                mimetype='text/plain'
+            )
+
+    resp: EntityList = EntityList(entities=list(search_by_id(entities, True)))
+
+    return app.response_class(
+        response=(resp.model_dump_json()),
+        status=200,
+        mimetype='application/json'
+    )
+
+@api.route('/api/entities/')
+class SearchById(Resource):
+    @api.response(200, 'Success')
+    def post(self):
+
+        data = request.json
+
+        if data is None:
+            return app.response_class(
+                response=f"No data provided.",
+                status=400,
+                mimetype='text/plain'
+            )
+
+        if "entities" not in data:
+            return app.response_class(
+                response=f"No entities provided.",
+                status=400,
+                mimetype='text/plain'
+            )
+
+        entities:list[str] = data["entities"]
+
+        for entity in entities:
+            if not is_valid_babelnet_id(entity):
+                return app.response_class(
+                    response=f"{entity} is not a valid babelnet id",
+                    status=400,
+                    mimetype='text/plain'
+                )
+
+        return search_by_ids(entities)
+
+
 # Receives a list of valid Babelnet ids as a parameter
 # Outputs a list of "Entity"
 @api.route('/api/entities/<string:ids>')
@@ -85,23 +147,9 @@ class Search(Resource):
     @api.response(200, 'Success')
     def get(self, ids):
 
-        from neXSim.utils import is_valid_babelnet_id
+
         entities = ids.split(',')
-        for entity in entities:
-            if not is_valid_babelnet_id(entity):
-                return app.response_class(
-                    response=f"{entity} is not a valid babelnet id",
-                    status=400,
-                    mimetype='text/plain'
-                )
-
-        resp: EntityList = EntityList(entities=list(search_by_id(entities, True)))
-
-        return app.response_class(
-            response=(resp.model_dump_json()),
-            status=200,
-            mimetype='application/json'
-        )
+        return search_by_ids(entities)
 
 
 # Receives in the body a list of Entity ID (which are Babelnet IDs) [field "unit"]
@@ -117,7 +165,7 @@ class Summary(Resource):
     @api.response(200, 'Success')
     def post(self):
 
-        parsed_request = validate_and_parse(request.json)
+        parsed_request = validate_and_parse_nexsim_response(request.json)
 
         if type(parsed_request) != NeXSimResponse:
             return parsed_request
@@ -136,26 +184,18 @@ class Summary(Resource):
         )
 
 
-# Essentially the same as "summary"
-# But in the output also produces a field called ["lca"] which is essentially a list of Relation
 @api.route('/api/lca')
 class LCA(Resource):
 
     @api.response(200, 'Success')
     def post(self):
-        parsed_request = validate_and_parse(request.json)
+        parsed_request = validate_and_parse_nexsim_response(request.json)
 
         if type(parsed_request) != NeXSimResponse:
             return parsed_request
 
         my_request: NeXSimResponse = parsed_request
 
-        if not check_summary(my_request):
-            return app.response_class(
-                response=f"Unit has no summary. Cannot proceed to the characterization",
-                status=400,
-                mimetype='text/plain'
-            )
         upper: bool = os.environ.get('PREDICATES_UPPER') == 'True'
         lca(my_request, upper)
 
@@ -171,7 +211,7 @@ class Characterization(Resource):
 
     @api.response(200, 'Success')
     def post(self):
-        parsed_request = validate_and_parse(request.json)
+        parsed_request = validate_and_parse_nexsim_response(request.json)
 
         if type(parsed_request) != NeXSimResponse:
             return parsed_request
@@ -200,7 +240,7 @@ class Kernel(Resource):
 
     @api.response(200, 'Success')
     def post(self):
-        parsed_request = validate_and_parse(request.json)
+        parsed_request = validate_and_parse_nexsim_response(request.json)
 
         if type(parsed_request) != NeXSimResponse:
             return parsed_request
@@ -229,6 +269,29 @@ class Kernel(Resource):
             mimetype='application/json',
         )
 
+
+@api.route('/api/oneshot')
+class OneshotComputation(Resource):
+    @api.response(200, 'Success')
+    def post(self):
+        upper: bool = os.environ.get('PREDICATES_UPPER') == 'True'
+        parsed_request = validate_and_parse_nexsim_response(request.json)
+
+        if type(parsed_request) != NeXSimResponse:
+            return parsed_request
+
+        my_request: NeXSimResponse = parsed_request
+
+        full_summary(my_request)
+        characterize(my_request)
+        lca(my_request, upper)
+        kernel_explanation(my_request)
+
+        return app.response_class(
+            response=my_request.model_dump_json(),
+            status=200,
+            mimetype='application/json'
+        )
 
 @api.route('/api/unit/report/<string:mode>')
 class Report(Resource):

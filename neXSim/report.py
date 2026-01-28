@@ -50,7 +50,7 @@ def report_all(_input: NeXSimResponse) -> str:
     for _entity in _entities:
         _output += entity_to_outfile(_entity) + ", "
     _output = _output[:-2] + "\n \n"
-    if _input.summaries is None:
+    if _input.summaries is None or len(_input.summaries) == 0:
         full_summary(_input)
     _ids_in_summaries: set[str] = set()
     for summary in _input.summaries:
@@ -66,7 +66,8 @@ def report_all(_input: NeXSimResponse) -> str:
         for atom in summary.summary:
             _output += f"{atom_to_outfile(atom, _involved_entities)}\n"
         _output += "\n"
-    if _input.lca is None:
+
+    if _input.lca is None or len(_input.lca) == 0:
         lca(_input)
 
     _output += "LCA: \n"
@@ -74,7 +75,7 @@ def report_all(_input: NeXSimResponse) -> str:
         _output += f"{atom_to_outfile(atom, _involved_entities)}\n"
     _output += "\n"
 
-    if _input.characterization is None:
+    if _input.characterization is None or len(_input.characterization) == 0:
         characterize(_input)
 
     _output += "Characterization: \n"
@@ -82,7 +83,7 @@ def report_all(_input: NeXSimResponse) -> str:
         _output += f"{atom_to_outfile(atom, _involved_entities)}\n"
     _output += "\n"
 
-    if _input.kernel_explanation is None:
+    if _input.kernel_explanation is None or len(_input.kernel_explanation) == 0:
         kernel_explanation(_input)
 
     _output += "Kernel Explanation: \n"
