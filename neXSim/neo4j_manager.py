@@ -20,6 +20,7 @@ def search_by_id(tx, _identifiers: list[str]):
     x.mainSense as mainSense,
     x.description as description,
     x.synonyms as synonyms,
+    x.imageUrl as image_url,
     x.type as type
     """
     result = tx.run(query, ids=_identifiers)
@@ -27,6 +28,7 @@ def search_by_id(tx, _identifiers: list[str]):
              "mainSense": record["mainSense"] if record["mainSense"] else "",
              "description": record["description"],
              "synonyms": record["synonyms"],
+             "image_url" : record["image_url"],
              "type": record["type"] if record['type'] else EntityType.NAMED_ENTITY}
             for record in result]
 
@@ -75,7 +77,8 @@ def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0):
                     node.mainSense as mainSense,
                     node.description as description,
                     node.synonyms as synonyms,
-                    node.type as type 
+                    node.type as type,
+                    node.imageUrl as image_url
                     SKIP {skip} LIMIT 10""".format(main_sense_str=main_sense_str,
                                                     synonyms_str=synonyms_str,
                                                     params_str=params_str,
@@ -90,6 +93,7 @@ def search_by_lemma(tx, _lemma: str, _page: int = 0, _skip: int = 0):
              "mainSense": record["mainSense"] if record["mainSense"] else "",
              "description": record["description"],
              "synonyms": record["synonyms"],
+             "image_url": record["image_url"],
              "type": record["type"] if record['type'] else EntityType.NAMED_ENTITY}
                    )
 

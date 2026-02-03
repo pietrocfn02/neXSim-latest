@@ -22,12 +22,15 @@ def parse_entity(e):
     else:
         _type = "NAMED_ENTITY"
 
+    _image_url = e["image_url"]
+
     tmp: Entity = Entity(id=_id, main_sense=_main_sense, entity_type=_type,
-                         description=_description, synonyms=_synonyms, image_url="")
+                         description=_description, synonyms=_synonyms, image_url=_image_url)
 
     return tmp
 
 def result_to_entity_list(result) -> list[Entity]:
+
     entities = []
     for entity in result:
         entities.append(parse_entity(entity))
