@@ -22,7 +22,7 @@ def parse_entity(e):
     else:
         _type = "NAMED_ENTITY"
 
-    _image_url = e["image_url"]
+    _image_url = e["image_url"] if e["image_url"] is not None else ""
 
     tmp: Entity = Entity(id=_id, main_sense=_main_sense, entity_type=_type,
                          description=_description, synonyms=_synonyms, image_url=_image_url)
